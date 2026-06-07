@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exam Monitoring Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #f0f4ff;
+      --panel: #ffffff;
+      --navy: #0f1a3e;
+      --indigo: #2d3ab1;
+      --indigo-soft: #eef0fd;
+      --green: #0d9c6e;
+      --green-soft: #e6f7f1;
+      --amber: #c47a0a;
+      --amber-soft: #fdf3e0;
+      --red: #c0282a;
+      --red-soft: #fceaea;
+      --muted: rgba(15,26,62,0.45);
+      --border: rgba(15,26,62,0.09);
+      --shadow: 0 8px 32px rgba(15,26,62,0.08);
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'Space Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--navy);
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      background: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 16px rgba(15,26,62,0.18);
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-size: 1rem;
+      color: #fff;
+      padding: 18px 0;
+      margin-right: 32px;
+      white-space: nowrap;
+    }
+    .nav-brand span { color: #4ecfa0; }
+    .nav-tabs { display: flex; gap: 2px; }
+    .nav-tab {
+      padding: 18px 20px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.18s, border-color 0.18s;
+      white-space: nowrap;
+    }
+    .nav-tab:hover { color: rgba(255,255,255,0.85); }
+    .nav-tab.active { color: #4ecfa0; border-bottom-color: #4ecfa0; }
+    .live-dot-nav {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.78rem;
+      color: #4ecfa0;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .pulse { width: 7px; height: 7px; background: #4ecfa0; border-radius: 50%; animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.65);} }
+
+    /* ── PAGES ── */
+    .page { display: none; padding: 28px; animation: fadeIn 0.22s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);} }
+    .dash { max-width: 1200px; margin: 0 auto; display: grid; gap: 20px; }
+
+    /* ── HEADER BANNER ── */
+    .topbar {
+      background: var(--navy);
+      border-radius: 20px;
+      padding: 28px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .topbar h1 { font-family: var(--mono); font-size: clamp(1.3rem,2vw,1.8rem); color: #fff; letter-spacing: -0.02em; }
+    .topbar p { font-size: 0.875rem; color: rgba(255,255,255,0.55); margin-top: 6px; line-height: 1.6; max-width: 520px; }
+    .badge-live { display: inline-flex; align-items: center; gap: 7px; background: rgba(78,207,160,0.18); color: #4ecfa0; border: 1px solid rgba(78,207,160,0.3); padding: 7px 16px; border-radius: 99px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; }
+
+    /* ── KPI ── */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; }
+    .kpi { background: var(--panel); border-radius: 16px; border: 1px solid var(--border); padding: 22px 24px; transition: transform 0.18s, box-shadow 0.18s; }
+    .kpi:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+    .kpi-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; }
+    .kpi-value { font-family: var(--mono); font-size: 2.1rem; font-weight: 700; line-height: 1; }
+    .kpi-footer { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .kpi-sub { font-size: 0.78rem; color: var(--muted); }
+    .tag { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px; font-size: 0.73rem; font-weight: 600; }
+    .tag-g { background: var(--green-soft); color: var(--green); }
+    .tag-a { background: var(--amber-soft); color: var(--amber); }
+    .tag-r { background: var(--red-soft); color: var(--red); }
+
+    /* ── PANELS ── */
+    .panel-row { display: grid; gap: 20px; grid-template-columns: 1.5fr 1fr; }
+    .panel { background: var(--panel); border-radius: 18px; border: 1px solid var(--border); padding: 24px; }
+    .panel-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    .panel-title svg { width: 18px; height: 18px; color: var(--indigo); flex-shrink: 0; }
+
+    /* ── TABLES ── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+    td { padding: 11px 12px; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(45,58,177,0.03); }
+    .pill { display: inline-flex; align-items: center; padding: 4px 11px; border-radius: 99px; font-size: 0.77rem; font-weight: 600; }
+    .pill-g { background: var(--green-soft); color: var(--green); }
+    .pill-gray { background: rgba(15,26,62,0.07); color: #4b5563; }
+    .pill-r { background: var(--red-soft); color: var(--red); }
+    .pill-a { background: var(--amber-soft); color: var(--amber); }
+    .pill-b { background: var(--indigo-soft); color: var(--indigo); }
+
+    /* ── SERVER BARS ── */
+    .server-grid { display: grid; gap: 11px; }
+    .metric-row { display: flex; align-items: center; background: var(--bg); border-radius: 12px; padding: 13px 16px; gap: 12px; }
+    .metric-row .m-label { font-size: 0.875rem; font-weight: 500; min-width: 110px; }
+    .bar-track { flex: 1; background: rgba(15,26,62,0.08); border-radius: 99px; height: 6px; overflow: hidden; }
+    .bar-fill { width:100%; height: 100%; border-radius: 99px; transform-origin: left; transform: scaleX(0); transition: transform 900ms cubic-bezier(.2,.9,.2,1); }
+    .m-val { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; min-width: 44px; text-align: right; }
+
+    /* ── RESULT CARDS ── */
+    .result-strip { background: var(--panel); border-radius: 18px; border: 1px solid var(--border); padding: 24px; }
+    .result-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 14px; margin-top: 16px; }
+    .result-card { background: var(--bg); border-radius: 14px; padding: 20px 14px; text-align: center; border: 1px solid var(--border); }
+    .result-card strong { font-family: var(--mono); font-size: 1.6rem; display: block; margin-bottom: 5px; }
+    .result-card span { font-size: 0.78rem; color: var(--muted); }
+    .chart-wrap { margin-top: 20px; position: relative; height: 160px; }
+
+    /* ══════════════════════════════════════
+       PAGE 2 — STUDENT LOGIN
+    ══════════════════════════════════════ */
+    .login-outer {
+      min-height: calc(100vh - 58px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    .login-card {
+      background: var(--panel);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 60px rgba(15,26,62,0.1);
+      width: 100%;
+      max-width: 440px;
+      padding: 40px 36px;
+    }
+    .login-logo {
+      width: 52px; height: 52px;
+      background: var(--navy);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px;
+    }
+    .login-logo svg { width: 26px; height: 26px; color: #4ecfa0; }
+    .login-card h2 { font-family: var(--mono); font-size: 1.35rem; margin-bottom: 4px; color: var(--navy); }
+    .login-card p { font-size: 0.875rem; color: var(--muted); margin-bottom: 28px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--navy); margin-bottom: 7px; letter-spacing: 0.03em; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-family: var(--font);
+      font-size: 0.9rem;
+      color: var(--navy);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--indigo);
+      box-shadow: 0 0 0 3px rgba(45,58,177,0.1);
+    }
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.12s;
+      margin-top: 6px;
+    }
+    .btn-primary:hover { background: var(--indigo); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .login-msg { margin-top: 16px; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 500; display: none; }
+    .login-msg.success { background: var(--green-soft); color: var(--green); display: block; }
+    .login-msg.error { background: var(--red-soft); color: var(--red); display: block; }
+    .login-sessions { margin-top: 28px; }
+    .login-sessions h3 { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+    .session-item {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg); border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 8px; border: 1px solid var(--border);
+    }
+    .session-avatar {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--indigo-soft); color: var(--indigo);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .session-info { flex: 1; }
+    .session-info .s-name { font-size: 0.875rem; font-weight: 600; }
+    .session-info .s-sub { font-size: 0.75rem; color: var(--muted); }
+
+    /* ══════════════════════════════════════
+       PAGE 3 — ONLINE EXAM
+    ══════════════════════════════════════ */
+    .exam-outer { max-width: 900px; margin: 0 auto; }
+    .exam-header { background: var(--navy); border-radius: 20px; padding: 24px 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+    .exam-header h2 { font-family: var(--mono); color: #fff; font-size: 1.1rem; }
+    .exam-header p { font-size: 0.82rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    .exam-meta { display: flex; gap: 14px; flex-wrap: wrap; }
+    .exam-meta-item { text-align: center; background: rgba(255,255,255,0.08); border-radius: 12px; padding: 10px 18px; }
+    .exam-meta-item .em-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.45); }
+    .exam-meta-item .em-val { font-family: var(--mono); font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 2px; }
+    .em-val.timer-red { color: #f87171; }
+
+    .exam-progress { background: var(--panel); border-radius: 14px; border: 1px solid var(--border); padding: 16px 20px; display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .ep-label { font-size: 0.8rem; color: var(--muted); min-width: 80px; }
+    .ep-track { flex: 1; background: rgba(15,26,62,0.08); border-radius: 99px; height: 8px; overflow: hidden; }
+    .ep-fill { height: 100%; background: var(--indigo); border-radius: 99px; transition: width 0.4s; }
+    .ep-count { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; }
+
+    .question-card { background: var(--panel); border-radius: 18px; border: 1px solid var(--border); padding: 28px; margin-bottom: 18px; }
+    .q-num { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; }
+    .q-text { font-size: 1rem; font-weight: 500; line-height: 1.65; margin-bottom: 20px; color: var(--navy); }
+    .options-grid { display: grid; gap: 10px; }
+    .option-label {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 13px 16px;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      font-size: 0.9rem;
+    }
+    .option-label:hover { border-color: var(--indigo); background: var(--indigo-soft); }
+    .option-label input[type=radio] { display: none; }
+    .option-label.selected { border-color: var(--indigo); background: var(--indigo-soft); color: var(--indigo); font-weight: 500; }
+    .option-label.correct { border-color: var(--green); background: var(--green-soft); color: var(--green); font-weight: 600; }
+    .option-label.wrong { border-color: var(--red); background: var(--red-soft); color: var(--red); }
+    .opt-circle {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid currentColor; display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+    }
+    .exam-nav { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+    .btn-sec {
+      flex: 1; padding: 13px; border: 1px solid var(--border);
+      background: var(--panel); border-radius: 12px;
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+      color: var(--navy);
+    }
+    .btn-sec:hover { background: var(--bg); border-color: var(--indigo); }
+    .btn-submit {
+      flex: 1; padding: 13px; background: var(--navy);
+      border: none; border-radius: 12px;
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+      color: #fff; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-submit:hover { background: var(--indigo); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ══════════════════════════════════════
+       PAGE 4 — EXAM RESULT
+    ══════════════════════════════════════ */
+    .result-outer { max-width: 820px; margin: 0 auto; }
+    .result-hero {
+      background: var(--navy); border-radius: 22px; padding: 36px;
+      text-align: center; margin-bottom: 22px; position: relative; overflow: hidden;
+    }
+    .result-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 70% 30%, rgba(78,207,160,0.15), transparent 55%);
+      pointer-events: none;
+    }
+    .score-ring {
+      width: 130px; height: 130px; border-radius: 50%;
+      border: 5px solid rgba(255,255,255,0.12);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      margin: 0 auto 20px; position: relative;
+    }
+    .score-ring svg { position: absolute; inset: -5px; width: calc(100% + 10px); height: calc(100% + 10px); }
+    .score-ring .sr-num { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; }
+    .score-ring .sr-lbl { font-size: 0.7rem; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+    .result-hero h2 { font-family: var(--mono); color: #fff; font-size: 1.4rem; margin-bottom: 6px; }
+    .result-hero p { font-size: 0.875rem; color: rgba(255,255,255,0.5); }
+    .result-status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px; border-radius: 99px; font-size: 0.85rem; font-weight: 700; margin-top: 16px; }
+    .rs-pass { background: rgba(13,156,110,0.2); color: #4ecfa0; border: 1px solid rgba(78,207,160,0.3); }
+    .rs-fail { background: rgba(192,40,42,0.2); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+
+    .result-breakdown { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 14px; margin-bottom: 22px; }
+    .rb-card { background: var(--panel); border-radius: 16px; border: 1px solid var(--border); padding: 20px; text-align: center; }
+    .rb-card .rb-val { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; margin-bottom: 4px; }
+    .rb-card .rb-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .result-table { background: var(--panel); border-radius: 18px; border: 1px solid var(--border); padding: 24px; margin-bottom: 22px; }
+    .result-table h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 16px; }
+    .answer-row { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .answer-row:last-child { border-bottom: none; }
+    .ans-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .ans-icon.ok { background: var(--green-soft); color: var(--green); }
+    .ans-icon.ng { background: var(--red-soft); color: var(--red); }
+    .ans-icon svg { width: 13px; height: 13px; }
+    .ans-body { flex: 1; }
+    .ans-q { font-size: 0.875rem; font-weight: 500; margin-bottom: 5px; }
+    .ans-detail { font-size: 0.8rem; color: var(--muted); }
+    .ans-detail b { font-weight: 600; }
+    .ans-detail .correct-ans { color: var(--green); }
+    .ans-detail .wrong-ans { color: var(--red); }
+
+    .btn-retake {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--navy); color: #fff; border: none;
+      border-radius: 12px; padding: 13px 28px;
+      font-family: var(--font); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn-retake:hover { background: var(--indigo); }
+
+    @media (max-width: 720px) {
+      .panel-row { grid-template-columns: 1fr; }
+      .page { padding: 16px; }
+      .login-card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAVIGATION ── -->
+<nav class="nav">
+  <div class="nav-brand">Exam<span>Pro</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button class="nav-tab" onclick="showPage('login')">🔐 Student Login</button>
+    <button class="nav-tab" onclick="showPage('exam')">📝 Online Exam</button>
+    <button class="nav-tab" onclick="showPage('result')">🏆 Exam Result</button>
+  </div>
+  <div class="live-dot-nav"><span class="pulse"></span>LIVE</div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1 — DASHBOARD
+══════════════════════════════════════════ -->
+<div id="page-dashboard" class="page active">
+  <div class="dash">
+    <div class="topbar">
+      <div>
+        <h1>Exam Monitoring Dashboard</h1>
+        <p>Real-time tracking of student logins, attendance, malpractice alerts, server health, and result analytics across all exam centers.</p>
+      </div>
+      <div class="badge-live"><span class="pulse"></span>LIVE DATA</div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Student Logins</div>
+        <div class="kpi-value" style="color:var(--indigo);">1,248</div>
+        <div class="kpi-footer"><span class="kpi-sub">Active sessions</span><span class="tag tag-g">+3% today</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Exam Attendance</div>
+        <div class="kpi-value" style="color:var(--green);">95.4%</div>
+        <div class="kpi-footer"><span class="kpi-sub">Today's rate</span><span class="tag tag-g">Stable</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Malpractice Alerts</div>
+        <div class="kpi-value" style="color:var(--red);">12</div>
+        <div class="kpi-footer"><span class="kpi-sub">Pending review</span><span class="tag tag-a">High risk</span></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Server Uptime</div>
+        <div class="kpi-value" style="color:var(--green);">99.9%</div>
+        <div class="kpi-footer"><span class="kpi-sub">All systems</span><span class="tag tag-g">Optimal</span></div>
+      </div>
+    </div>
+
+    <div class="panel-row">
+      <div class="panel">
+        <div class="panel-title">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Student Login Tracking
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Name</th><th>Login</th><th>Exam</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST101</td><td>Rahul Kumar</td><td>09:00 AM</td><td>Math 101</td><td><span class="pill pill-g">Online</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST102</td><td>Priya Sharma</td><td>09:05 AM</td><td>Physics 102</td><td><span class="pill pill-g">Online</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST103</td><td>Arjun Singh</td><td>09:10 AM</td><td>English 103</td><td><span class="pill pill-gray">Offline</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST124</td><td>Neha Patel</td><td>09:18 AM</td><td>Math 101</td><td><span class="pill pill-g">Online</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST135</td><td>Kiran Mehta</td><td>09:22 AM</td><td>Physics 102</td><td><span class="pill pill-g">Online</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Server Performance
+        </div>
+          <div class="server-grid">
+          <div class="metric-row"><span class="m-label">CPU Usage</span><div class="bar-track"><div class="bar-fill" data-percent="45" style="background:var(--indigo);"></div></div><span class="m-val">45%</span></div>
+          <div class="metric-row"><span class="m-label">Memory</span><div class="bar-track"><div class="bar-fill" data-percent="62" style="background:var(--amber);"></div></div><span class="m-val">62%</span></div>
+          <div class="metric-row"><span class="m-label">Response</span><div class="bar-track"><div class="bar-fill" data-percent="24" style="background:var(--green);"></div></div><span class="m-val">120ms</span></div>
+          <div class="metric-row"><span class="m-label">DB Load</span><div class="bar-track"><div class="bar-fill" data-percent="38" style="background:var(--indigo);"></div></div><span class="m-val">38%</span></div>
+        </div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-top:14px;line-height:1.6;">All resources within safe thresholds. Monitor memory during peak exam windows.</p>
+      </div>
+    </div>
+
+    <div class="panel-row">
+      <div class="panel">
+        <div class="panel-title">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Exam Attendance Statistics
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Exam</th><th>Registered</th><th>Present</th><th>Absent</th><th>Rate</th></tr></thead>
+            <tbody>
+              <tr><td>Math 101</td><td>500</td><td>470</td><td>30</td><td><span class="tag tag-a">94%</span></td></tr>
+              <tr><td>Physics 102</td><td>420</td><td>402</td><td>18</td><td><span class="tag tag-g">96%</span></td></tr>
+              <tr><td>English 103</td><td>580</td><td>556</td><td>24</td><td><span class="tag tag-g">96%</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Malpractice Alerts
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Alert</th><th>Time</th><th>Level</th></tr></thead>
+            <tbody>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST120</td><td style="font-size:0.82rem;">Multiple logins</td><td style="font-size:0.82rem;">10:15</td><td><span class="pill pill-r">High</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST145</td><td style="font-size:0.82rem;">Tab switching</td><td style="font-size:0.82rem;">10:32</td><td><span class="pill pill-r">High</span></td></tr>
+              <tr><td style="font-family:var(--mono);font-size:0.8rem;">ST168</td><td style="font-size:0.82rem;">Screen share</td><td style="font-size:0.82rem;">10:49</td><td><span class="pill pill-a">Medium</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-strip">
+      <div class="panel-title">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:18px;height:18px;color:var(--indigo);"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Result Analysis
+      </div>
+      <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;">Overall performance across the latest assessment window.</p>
+      <div class="result-cards">
+        <div class="result-card"><strong style="color:var(--navy);">1,500</strong><span>Total Students</span></div>
+        <div class="result-card"><strong style="color:var(--green);">1,320</strong><span>Passed</span></div>
+        <div class="result-card"><strong style="color:var(--red);">180</strong><span>Failed</span></div>
+        <div class="result-card"><strong style="color:var(--indigo);">88%</strong><span>Pass Rate</span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="attendChart" role="img" aria-label="Bar chart of pass rates by exam subject">Math 86%, Physics 91%, English 89%</canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 2 — STUDENT LOGIN
+══════════════════════════════════════════ -->
+<div id="page-login" class="page">
+  <div class="login-outer">
+    <div style="width:100%;max-width:480px;">
+      <div class="login-card">
+        <div class="login-logo">
+          <svg fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 11c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2z"/><path d="M5.93 17.57A10 10 0 0 1 12 2a10 10 0 0 1 6.07 15.57"/><path d="M12 22v-4"/></svg>
+        </div>
+        <h2>Student Login</h2>
+        <p>Enter your credentials to access your exam session.</p>
+
+        <div class="form-group">
+          <label>Student ID</label>
+          <input type="text" id="loginId" placeholder="e.g. ST101" />
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="loginName" placeholder="Your full name" />
+        </div>
+        <div class="form-group">
+          <label>Exam Subject</label>
+          <select id="loginExam">
+            <option value="">-- Select Exam --</option>
+            <option value="Math 101">Math 101</option>
+            <option value="Physics 102">Physics 102</option>
+            <option value="English 103">English 103</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPass" placeholder="••••••••" />
+        </div>
+        <div style="margin:10px 0;">
+          <!-- Google Sign-In button (replace CLIENT_ID in script below) -->
+          <div id="gSignIn"></div>
+        </div>
+        <button class="btn-primary" onclick="doLogin()">Login &amp; Start Exam →</button>
+        <div class="login-msg" id="loginMsg"></div>
+      </div>
+
+      <div class="login-sessions" style="max-width:480px;margin:20px auto 0;">
+        <h3>Recent Sessions</h3>
+        <div class="session-item">
+          <div class="session-avatar">RK</div>
+          <div class="session-info"><div class="s-name">Rahul Kumar</div><div class="s-sub">ST101 · Math 101 · 09:00 AM</div></div>
+          <span class="pill pill-g">Online</span>
+        </div>
+        <div class="session-item">
+          <div class="session-avatar">PS</div>
+          <div class="session-info"><div class="s-name">Priya Sharma</div><div class="s-sub">ST102 · Physics 102 · 09:05 AM</div></div>
+          <span class="pill pill-g">Online</span>
+        </div>
+        <div class="session-item">
+          <div class="session-avatar">AS</div>
+          <div class="session-info"><div class="s-name">Arjun Singh</div><div class="s-sub">ST103 · English 103 · 09:10 AM</div></div>
+          <span class="pill pill-gray">Offline</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 3 — ONLINE EXAM
+══════════════════════════════════════════ -->
+<div id="page-exam" class="page">
+  <div class="exam-outer">
+    <div class="exam-header">
+      <div>
+        <h2 id="examTitle">Math 101 — Online Examination</h2>
+        <p id="examStudent">Student: — · ID: —</p>
+      </div>
+      <div class="exam-meta">
+        <div class="exam-meta-item">
+          <div class="em-label">Time Left</div>
+          <div class="em-val" id="timerDisplay">30:00</div>
+        </div>
+        <div class="exam-meta-item">
+          <div class="em-label">Questions</div>
+          <div class="em-val" id="qCountDisplay">5</div>
+        </div>
+        <div class="exam-meta-item">
+          <div class="em-label">Marks</div>
+          <div class="em-val">25</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="exam-progress">
+      <span class="ep-label">Progress</span>
+      <div class="ep-track"><div class="ep-fill" id="epFill" style="width:20%;"></div></div>
+      <span class="ep-count" id="epCount">1 / 5</span>
+    </div>
+
+    <div id="questionArea"></div>
+
+    <div class="exam-nav">
+      <button class="btn-sec" id="btnPrev" onclick="prevQ()">← Previous</button>
+      <button class="btn-sec" id="btnNext" onclick="nextQ()">Next →</button>
+      <button class="btn-submit" id="btnSubmit" onclick="submitExam()" disabled>Submit Exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 4 — EXAM RESULT
+══════════════════════════════════════════ -->
+<div id="page-result" class="page">
+  <div class="result-outer">
+    <div class="result-hero">
+      <div class="score-ring" id="scoreRing">
+        <svg viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="70" cy="70" r="60" stroke="rgba(255,255,255,0.1)" stroke-width="10"/>
+          <circle id="scoreArc" cx="70" cy="70" r="60" stroke="#4ecfa0" stroke-width="10"
+            stroke-dasharray="377" stroke-dashoffset="377" stroke-linecap="round"
+            transform="rotate(-90 70 70)" style="transition:stroke-dashoffset 1.2s ease;"/>
+        </svg>
+        <div class="sr-num" id="heroScore">—</div>
+        <div class="sr-lbl">Score</div>
+      </div>
+      <h2 id="heroName">Your Exam Result</h2>
+      <p id="heroExam">Complete an exam to see your results here.</p>
+      <div class="result-status rs-pass" id="heroStatus" style="display:none;"></div>
+    </div>
+
+    <div class="result-breakdown" id="resultBreakdown"></div>
+    <div class="result-table" id="resultTable" style="display:none;">
+      <h3>Question-by-Question Review</h3>
+      <div id="answerList"></div>
+    </div>
+    <div style="text-align:center;" id="retakeArea" style="display:none;">
+      <button class="btn-retake" onclick="showPage('exam')">↺ Retake Exam</button>
+    </div>
+    <div id="noResultMsg" style="text-align:center;padding:60px 20px;color:var(--muted);font-size:0.95rem;">
+      No result yet. Please complete an exam first.<br><br>
+      <button class="btn-submit" style="display:inline-block;padding:12px 28px;" onclick="showPage('exam')">Go to Exam →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ═══════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const idx = {dashboard:0,login:1,exam:2,result:3}[id];
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  if (id === 'dashboard') { initChart(); animateServerBars(); }
+  if (id === 'result') showResult();
+}
+
+// ═══════════════════════════════════════
+//  DASHBOARD CHART
+// ═══════════════════════════════════════
+let chartInited = false;
+function initChart() {
+  if (chartInited) return;
+  chartInited = true;
+  new Chart(document.getElementById('attendChart'), {
+    type: 'bar',
+    data: {
+      labels: ['Math 101', 'Physics 102', 'English 103'],
+      datasets: [{
+        label: 'Pass rate %',
+        data: [86, 91, 89],
+        backgroundColor: ['#c6cbf2', '#a5d9c8', '#b8d5ef'],
+        borderColor: ['#2d3ab1', '#0d9c6e', '#185fa5'],
+        borderWidth: 1.5,
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 1200, easing: 'easeOutQuart' },
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 80, max: 100, ticks: { callback: v => v + '%', font: { size: 11 } }, grid: { color: 'rgba(15,26,62,0.05)' } },
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function animateServerBars() {
+  const bars = document.querySelectorAll('.bar-fill');
+  bars.forEach((b, idx) => {
+    const p = parseFloat(b.getAttribute('data-percent')) || 0;
+    // trigger in stagger for a nicer effect
+    setTimeout(() => { b.style.transform = 'scaleX(' + (p / 100) + ')'; }, 120 * idx);
+  });
+}
+
+window.addEventListener('load', function() { initChart(); animateServerBars(); });
+
+// ───────── Google Identity Services (Sign in with Google)
+// NOTE: Replace the placeholder CLIENT_ID with your actual OAuth 2.0 Client ID
+function handleCredentialResponse(response) {
+  try {
+    const jwt = response.credential;
+    const payload = JSON.parse(atob(jwt.split('.')[1]));
+    // payload contains: sub (id), email, name, picture, etc.
+    currentStudent = { id: payload.sub, name: payload.name || payload.email, exam: document.getElementById('loginExam').value || 'Math 101' };
+    const msg = document.getElementById('loginMsg');
+    msg.className = 'login-msg success';
+    msg.textContent = '✓ Google login successful. Redirecting...';
+    setTimeout(() => { startExam(); showPage('exam'); }, 900);
+  } catch (e) {
+    console.error('Google sign-in error', e);
+  }
+}
+
+function initGoogleSignIn() {
+  if (!window.google || !google.accounts || !google.accounts.id) return;
+  // Replace the value below with your Google OAuth Client ID
+  const CLIENT_ID = 'REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+  google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
+  google.accounts.id.renderButton(
+    document.getElementById('gSignIn'),
+    { theme: 'outline', size: 'large', type: 'standard', text: 'signin_with' }
+  );
+  // Optionally show One Tap (uncomment to enable)
+  // google.accounts.id.prompt();
+}
+
+// Initialize Google button when scripts loaded
+window.addEventListener('load', initGoogleSignIn);
+
+// ═══════════════════════════════════════
+//  STUDENT LOGIN
+// ═══════════════════════════════════════
+const VALID_STUDENTS = {
+  'ST101': { name: 'Rahul Kumar',  pass: 'pass101' },
+  'ST102': { name: 'Priya Sharma', pass: 'pass102' },
+  'ST103': { name: 'Arjun Singh',  pass: 'pass103' },
+  'ST124': { name: 'Neha Patel',   pass: 'pass124' },
+};
+
+let currentStudent = null;
+
+function doLogin() {
+  const id   = document.getElementById('loginId').value.trim().toUpperCase();
+  const name = document.getElementById('loginName').value.trim();
+  const exam = document.getElementById('loginExam').value;
+  const pass = document.getElementById('loginPass').value;
+  const msg  = document.getElementById('loginMsg');
+  msg.className = 'login-msg';
+
+  if (!id || !name || !exam || !pass) {
+    msg.className = 'login-msg error'; msg.textContent = '⚠ Please fill in all fields.'; return;
+  }
+  if (VALID_STUDENTS[id] && VALID_STUDENTS[id].pass === pass) {
+    currentStudent = { id, name: VALID_STUDENTS[id].name, exam };
+    msg.className = 'login-msg success';
+    msg.textContent = '✓ Login successful! Redirecting to exam...';
+    setTimeout(() => { startExam(); showPage('exam'); }, 1200);
+  } else if (!VALID_STUDENTS[id]) {
+    msg.className = 'login-msg error'; msg.textContent = '✗ Student ID not found.';
+  } else {
+    msg.className = 'login-msg error'; msg.textContent = '✗ Incorrect password.';
+  }
+}
+
+// ═══════════════════════════════════════
+//  EXAM ENGINE
+// ═══════════════════════════════════════
+const QUESTIONS = [
+  {
+    q: 'If f(x) = 3x² − 5x + 2, what is f(2)?',
+    opts: ['A) 4', 'B) 6', 'C) 8', 'D) 10'],
+    ans: 0  // A
+  },
+  {
+    q: 'What is the derivative of sin(x)?',
+    opts: ['A) −cos(x)', 'B) cos(x)', 'C) tan(x)', 'D) sec²(x)'],
+    ans: 1  // B
+  },
+  {
+    q: 'Solve: 2x + 5 = 17. What is x?',
+    opts: ['A) 4', 'B) 5', 'C) 6', 'D) 7'],
+    ans: 2  // C
+  },
+  {
+    q: 'What is the area of a circle with radius 7 cm? (π ≈ 3.14)',
+    opts: ['A) 153.86 cm²', 'B) 43.96 cm²', 'C) 49 cm²', 'D) 78.5 cm²'],
+    ans: 0  // A
+  },
+  {
+    q: 'Which of the following is NOT a prime number?',
+    opts: ['A) 17', 'B) 23', 'C) 51', 'D) 31'],
+    ans: 2  // C
+  }
+];
+
+let currentQ = 0;
+let answers  = new Array(QUESTIONS.length).fill(null);
+let timerInterval = null;
+let timeLeft = 30 * 60;
+
+function startExam() {
+  if (currentStudent) {
+    document.getElementById('examTitle').textContent = (currentStudent.exam || 'Math 101') + ' — Online Examination';
+    document.getElementById('examStudent').textContent = 'Student: ' + currentStudent.name + ' · ID: ' + currentStudent.id;
+  }
+  currentQ = 0;
+  answers  = new Array(QUESTIONS.length).fill(null);
+  timeLeft = 30 * 60;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(tickTimer, 1000);
+  renderQuestion();
+}
+
+function tickTimer() {
+  timeLeft--;
+  const m = String(Math.floor(timeLeft / 60)).padStart(2,'0');
+  const s = String(timeLeft % 60).padStart(2,'0');
+  const el = document.getElementById('timerDisplay');
+  el.textContent = m + ':' + s;
+  if (timeLeft <= 300) el.classList.add('timer-red'); else el.classList.remove('timer-red');
+  if (timeLeft <= 0) { clearInterval(timerInterval); submitExam(); }
+}
+
+function renderQuestion() {
+  const q   = QUESTIONS[currentQ];
+  const pct = Math.round(((currentQ + 1) / QUESTIONS.length) * 100);
+  document.getElementById('epFill').style.width  = pct + '%';
+  document.getElementById('epCount').textContent = (currentQ + 1) + ' / ' + QUESTIONS.length;
+  document.getElementById('qCountDisplay').textContent = QUESTIONS.length;
+  document.getElementById('btnPrev').disabled = currentQ === 0;
+  document.getElementById('btnNext').disabled = currentQ === QUESTIONS.length - 1;
+
+  const allAnswered = answers.every(a => a !== null);
+  document.getElementById('btnSubmit').disabled = !allAnswered;
+
+  const labels = ['A', 'B', 'C', 'D'];
+  let html = '<div class="question-card">'
+    + '<div class="q-num">Question ' + (currentQ + 1) + ' of ' + QUESTIONS.length + '</div>'
+    + '<div class="q-text">' + q.q + '</div>'
+    + '<div class="options-grid">';
+
+  q.opts.forEach((opt, i) => {
+    const sel = answers[currentQ] === i ? 'selected' : '';
+    html += '<label class="option-label ' + sel + '" onclick="selectOpt(' + i + ')">'
+      + '<input type="radio" name="q' + currentQ + '" value="' + i + '"' + (answers[currentQ] === i ? ' checked' : '') + '>'
+      + '<span class="opt-circle">' + labels[i] + '</span>'
+      + opt.slice(3)
+      + '</label>';
+  });
+  html += '</div></div>';
+  document.getElementById('questionArea').innerHTML = html;
+}
+
+function selectOpt(i) {
+  answers[currentQ] = i;
+  renderQuestion();
+}
+function prevQ() { if (currentQ > 0) { currentQ--; renderQuestion(); } }
+function nextQ() { if (currentQ < QUESTIONS.length - 1) { currentQ++; renderQuestion(); } }
+
+function submitExam() {
+  clearInterval(timerInterval);
+  let score = 0;
+  answers.forEach((a, i) => { if (a === QUESTIONS[i].ans) score++; });
+  window._examResult = {
+    student: currentStudent || { name: 'Demo Student', id: 'ST000', exam: 'Math 101' },
+    score, total: QUESTIONS.length,
+    answers: [...answers],
+    questions: QUESTIONS
+  };
+  showPage('result');
+}
+
+// ═══════════════════════════════════════
+//  RESULT PAGE
+// ═══════════════════════════════════════
+function showResult() {
+  const r = window._examResult;
+  const noMsg = document.getElementById('noResultMsg');
+  const hero  = document.querySelector('.result-hero');
+  const bkd   = document.getElementById('resultBreakdown');
+  const tbl   = document.getElementById('resultTable');
+  const retake= document.getElementById('retakeArea');
+
+  if (!r) {
+    noMsg.style.display = 'block';
+    bkd.style.display   = 'none';
+    tbl.style.display   = 'none';
+    if(retake) retake.style.display = 'none';
+    document.getElementById('heroStatus').style.display = 'none';
+    document.getElementById('heroScore').textContent = '—';
+    document.getElementById('heroName').textContent  = 'Your Exam Result';
+    document.getElementById('heroExam').textContent  = 'Complete an exam to see results here.';
+    document.getElementById('scoreArc').style.strokeDashoffset = 377;
+    return;
+  }
+
+  noMsg.style.display = 'none';
+  bkd.style.display   = 'grid';
+  tbl.style.display   = 'block';
+  if(retake) retake.style.display = 'block';
+
+  const pct     = Math.round((r.score / r.total) * 100);
+  const passed  = pct >= 60;
+  const circum  = 377;
+  const offset  = circum - (circum * pct / 100);
+
+  document.getElementById('heroScore').textContent = pct + '%';
+  document.getElementById('heroName').textContent  = r.student.name;
+  document.getElementById('heroExam').textContent  = r.student.exam + ' · ID: ' + r.student.id;
+  const status = document.getElementById('heroStatus');
+  status.style.display = 'inline-flex';
+  status.className = 'result-status ' + (passed ? 'rs-pass' : 'rs-fail');
+  status.textContent = passed ? '✓ PASSED' : '✗ FAILED';
+
+  setTimeout(() => {
+    document.getElementById('scoreArc').style.strokeDashoffset = offset;
+    document.getElementById('scoreArc').style.stroke = passed ? '#4ecfa0' : '#f87171';
+  }, 100);
+
+  // Breakdown cards
+  const wrong = r.total - r.score;
+  bkd.innerHTML =
+    '<div class="rb-card"><div class="rb-val" style="color:var(--navy);">' + r.total + '</div><div class="rb-label">Total Qs</div></div>'
+  + '<div class="rb-card"><div class="rb-val" style="color:var(--green);">' + r.score + '</div><div class="rb-label">Correct</div></div>'
+  + '<div class="rb-card"><div class="rb-val" style="color:var(--red);">' + wrong + '</div><div class="rb-label">Wrong</div></div>'
+  + '<div class="rb-card"><div class="rb-val" style="color:var(--indigo);">' + pct + '%</div><div class="rb-label">Score</div></div>';
+
+  // Answer review
+  const labels = ['A','B','C','D'];
+  let html = '';
+  r.questions.forEach((q, i) => {
+    const ua = r.answers[i];
+    const ok = ua === q.ans;
+    html += '<div class="answer-row">'
+      + '<div class="ans-icon ' + (ok ? 'ok' : 'ng') + '">'
+      + (ok
+        ? '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>')
+      + '</div>'
+      + '<div class="ans-body">'
+      + '<div class="ans-q">Q' + (i+1) + ': ' + q.q + '</div>'
+      + '<div class="ans-detail">'
+      + 'Your answer: <span class="' + (ok ? 'correct-ans' : 'wrong-ans') + '"><b>' + (ua !== null ? labels[ua] + ') ' + q.opts[ua].slice(3) : 'Not answered') + '</b></span>'
+      + (ok ? '' : ' · Correct: <span class="correct-ans"><b>' + labels[q.ans] + ') ' + q.opts[q.ans].slice(3) + '</b></span>')
+      + '</div>'
+      + '</div></div>';
+  });
+  document.getElementById('answerList').innerHTML = html;
+}
+
+// Keyboard shortcuts for exam
+document.addEventListener('keydown', function(e) {
+  const page = document.getElementById('page-exam');
+  if (!page.classList.contains('active')) return;
+  if (e.key === 'ArrowRight') nextQ();
+  if (e.key === 'ArrowLeft')  prevQ();
+  if (['1','2','3','4'].includes(e.key)) selectOpt(parseInt(e.key) - 1);
+});
+
+// Init exam for demo (no login)
+startExam();
+</script>
+</body>
+</html>
